@@ -13,7 +13,7 @@ export default async function PengeluaranPage() {
   if (session.role !== "ADMIN") redirect("/kasir");
   return (
     <Shell user={{ name: session.name, username: session.username, role: session.role }}>
-      <PengeluaranClient />
+      <PengeluaranClient mode="admin" />
     </Shell>
   );
 }

@@ -89,6 +89,7 @@ const NAV_ADMIN: NavItem[] = [
 const NAV_KASIR: NavItem[] = [
   { href: "/kasir", label: "Kasir", icon: "kasir" },
   { href: "/kasir/transaksi", label: "Transaksi", icon: "transaksi" },
+  { href: "/kasir/pengeluaran", label: "Pengeluaran", icon: "dompet" },
 ];
 
 export function Shell({

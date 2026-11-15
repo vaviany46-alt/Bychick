@@ -25,10 +25,16 @@ const kosong = (): Form => ({
   expense_date: new Date().toISOString().slice(0, 10),
 });
 
-export default function PengeluaranClient() {
+export default function PengeluaranClient({ mode = "admin" }: { mode?: "admin" | "kasir" }) {
+  const kasir = mode === "kasir";
+  const hariIni = new Date().toISOString().slice(0, 10);
   const [expenses, setExpenses] = useState<Expense[] | null>(null);
   const [total, setTotal] = useState(0);
   const [rentang, setRentang] = useState(() => {
+    if (kasir) {
+      const hari = new Date().toISOString().slice(0, 10);
+      return { dari: hari, sampai: hari };
+    }
     const d = new Date();
     d.setDate(d.getDate() - 13);
     return { dari: d.toISOString().slice(0, 10), sampai: new Date().toISOString().slice(0, 10) };
@@ -89,10 +95,12 @@ export default function PengeluaranClient() {
     <div className="max-w-6xl mx-auto">
       <header className="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
-          <p className="micro">Admin</p>
+          <p className="micro">{kasir ? "Kasir" : "Admin"}</p>
           <h1 className="judul text-3xl mt-1">Pengeluaran</h1>
           <p className="text-sm mt-1" style={{ color: "var(--color-ink-2)" }}>
-            Beban operasional otomatis dihitung sebagai pengurang laba di dashboard analisis.
+            {kasir
+              ? "Catat belanja & beban harian di sini — langsung masuk rekap admin."
+              : "Rekap beban operasional — otomatis dikurangkan dari laba di dashboard analisis."}
           </p>
         </div>
         <button onClick={bukaTambah} className="btn btn-utama">+ Catat pengeluaran</button>
@@ -103,7 +111,7 @@ export default function PengeluaranClient() {
       {/* Ringkasan */}
       <div className="grid md:grid-cols-[auto_1fr] gap-4 mb-5">
         <div className="kartu p-5 min-w-56">
-          <p className="micro mb-1">Total {tanggal(rentang.dari)} – {tanggal(rentang.sampai)}</p>
+          <p className="micro mb-1">{kasir ? "Total hari ini" : `Total ${tanggal(rentang.dari)} – ${tanggal(rentang.sampai)}`}</p>
           <p className="angka font-bold text-3xl" style={{ color: "var(--color-ember-2)" }}>{rupiah(total)}</p>
         </div>
         <div className="kartu p-5">
@@ -118,19 +126,21 @@ export default function PengeluaranClient() {
         </div>
       </div>
 
-      {/* Filter */}
-      <div className="kartu p-4 mb-4 flex flex-wrap items-center gap-3">
-        <div>
-          <label className="micro block mb-1" htmlFor="e-dari">Dari</label>
-          <input id="e-dari" type="date" className="input angka !w-40 !py-1.5" value={rentang.dari}
-            onChange={(e) => setRentang({ ...rentang, dari: e.target.value })} />
+      {/* Filter — hanya admin (kasir selalu hari ini, dipaksa server) */}
+      {!kasir && (
+        <div className="kartu p-4 mb-4 flex flex-wrap items-center gap-3">
+          <div>
+            <label className="micro block mb-1" htmlFor="e-dari">Dari</label>
+            <input id="e-dari" type="date" className="input angka !w-40 !py-1.5" value={rentang.dari}
+              onChange={(e) => setRentang({ ...rentang, dari: e.target.value })} />
+          </div>
+          <div>
+            <label className="micro block mb-1" htmlFor="e-sampai">Sampai</label>
+            <input id="e-sampai" type="date" className="input angka !w-40 !py-1.5" value={rentang.sampai}
+              onChange={(e) => setRentang({ ...rentang, sampai: e.target.value })} />
+          </div>
         </div>
-        <div>
-          <label className="micro block mb-1" htmlFor="e-sampai">Sampai</label>
-          <input id="e-sampai" type="date" className="input angka !w-40 !py-1.5" value={rentang.sampai}
-            onChange={(e) => setRentang({ ...rentang, sampai: e.target.value })} />
-        </div>
-      </div>
+      )}
 
       <div className="kartu overflow-x-auto">
         <table className="tabel w-full">
@@ -152,8 +162,12 @@ export default function PengeluaranClient() {
                 <td className="angka text-right font-semibold" style={{ color: "var(--color-ember-2)" }}>{rupiah(e.jumlah)}</td>
                 <td>
                   <div className="flex gap-1.5">
-                    <button onClick={() => bukaUbah(e)} className="btn btn-garis !px-3 !py-1.5 !text-xs">Ubah</button>
-                    <button onClick={() => hapus(e)} className="btn btn-bahaya !px-3 !py-1.5 !text-xs">Hapus</button>
+                    {!kasir && (
+                      <button onClick={() => bukaUbah(e)} className="btn btn-garis !px-3 !py-1.5 !text-xs">Ubah</button>
+                    )}
+                    {(!kasir || e.expense_date === hariIni) && (
+                      <button onClick={() => hapus(e)} className="btn btn-bahaya !px-3 !py-1.5 !text-xs">Hapus</button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -183,11 +197,16 @@ export default function PengeluaranClient() {
                 onChange={(e) => setForm({ ...form, jumlah: e.target.value })} placeholder="50000" />
             </div>
           </div>
-          <div>
-            <label className="micro block mb-1.5" htmlFor="p-tgl">Tanggal</label>
-            <input id="p-tgl" type="date" className="input angka" value={form.expense_date}
-              onChange={(e) => setForm({ ...form, expense_date: e.target.value })} />
-          </div>
+          {(kasir || form.id) && (
+            <input type="hidden" value={form.expense_date} />
+          )}
+          {!kasir && (
+            <div>
+              <label className="micro block mb-1.5" htmlFor="p-tgl">Tanggal</label>
+              <input id="p-tgl" type="date" className="input angka" value={form.expense_date}
+                onChange={(e) => setForm({ ...form, expense_date: e.target.value })} />
+            </div>
+          )}
           <button className="btn btn-utama">{form.id ? "Simpan perubahan" : "Catat pengeluaran"}</button>
         </form>
       </Modal>
