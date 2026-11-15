@@ -8,13 +8,24 @@ import { z } from "zod";
 const cleanString = (min: number, max: number) =>
   z
     .string()
-    .transform((s) => s.replace(/[\u0000-\u001f\u007f]/g, "").trim())
+    .transform((s) =>
+      s
+        // buang karakter kontrol & bracket HTML agar tidak ada markup tersimpan
+        .replace(/[\u0000-\u001f\u007f<>]/g, "")
+        .trim()
+    )
     .refine((s) => s.length >= min && s.length <= max, {
       message: `Panjang harus ${min}-${max} karakter`,
     });
 
+export const usernameSchema = z
+  .string()
+  .regex(/^[a-zA-Z0-9_.]+$/, "Username hanya huruf, angka, titik, underscore")
+  .transform((s) => s.replace(/[\u0000-\u001f\u007f]/g, "").trim())
+  .refine((s) => s.length >= 3 && s.length <= 24, { message: "Username harus 3-24 karakter" });
+
 export const registerSchema = z.object({
-  username: cleanString(3, 24).regex(/^[a-zA-Z0-9_.]+$/, "Username hanya huruf, angka, titik, underscore"),
+  username: usernameSchema,
   name: cleanString(3, 60),
   password: z
     .string()
@@ -56,7 +67,7 @@ export const orderStatusSchema = z.object({
 });
 
 export const userSchema = z.object({
-  username: cleanString(3, 24).regex(/^[a-zA-Z0-9_.]+$/, "Username hanya huruf, angka, titik, underscore"),
+  username: usernameSchema,
   name: cleanString(3, 60),
   role: z.enum(["ADMIN", "KASIR"]),
   password: z.string().min(8).max(72).regex(/[a-zA-Z]/).regex(/[0-9]/),

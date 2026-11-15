@@ -6,7 +6,8 @@ import fs from "node:fs";
 const DATA_DIR = path.join(process.cwd(), "data");
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
-const db = new Database(path.join(DATA_DIR, "bychick.db"));
+const db = new Database(path.join(DATA_DIR, "bychick.db"), { timeout: 15_000 });
+db.pragma("busy_timeout = 15000");
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
 
@@ -67,19 +68,22 @@ CREATE INDEX IF NOT EXISTS idx_logs_created ON activity_logs(created_at);
 `);
 
 function seed() {
-  const userCount = (db.prepare("SELECT COUNT(*) AS c FROM users").get() as { c: number }).c;
-  if (userCount === 0) {
-    const hash = bcrypt.hashSync(process.env.SEED_ADMIN_PASSWORD || "Admin123!", 12);
-    db.prepare("INSERT INTO users (username,name,password_hash,role) VALUES (?,?,?,?)")
-      .run("admin", "Owner Bychick", hash, "ADMIN");
-    db.prepare("INSERT INTO users (username,name,password_hash,role) VALUES (?,?,?,?)")
-      .run("kasir", "Kasir Bychick", bcrypt.hashSync(process.env.SEED_KASIR_PASSWORD || "Kasir123!", 12), "KASIR");
-  }
+  // Satu transaksi BEGIN IMMEDIATE: hanya satu proses yang boleh seed sekaligus
+  // (build berjalan multi-worker); worker lain menunggu lalu menemukan data sudah ada.
+  const seedTx = db.transaction(() => {
+    const userCount = (db.prepare("SELECT COUNT(*) AS c FROM users").get() as { c: number }).c;
+    if (userCount === 0) {
+      const hash = bcrypt.hashSync(process.env.SEED_ADMIN_PASSWORD || "Admin123!", 12);
+      db.prepare("INSERT INTO users (username,name,password_hash,role) VALUES (?,?,?,?)")
+        .run("admin", "Owner Bychick", hash, "ADMIN");
+      db.prepare("INSERT INTO users (username,name,password_hash,role) VALUES (?,?,?,?)")
+        .run("kasir", "Kasir Bychick", bcrypt.hashSync(process.env.SEED_KASIR_PASSWORD || "Kasir123!", 12), "KASIR");
+    }
 
-  const menuCount = (db.prepare("SELECT COUNT(*) AS c FROM menus").get() as { c: number }).c;
-  if (menuCount === 0) {
-    const ins = db.prepare("INSERT INTO menus (name,category,price) VALUES (?,?,?)");
-    const items: Array<[string, string, number]> = [
+    const menuCount = (db.prepare("SELECT COUNT(*) AS c FROM menus").get() as { c: number }).c;
+    if (menuCount === 0) {
+      const ins = db.prepare("INSERT INTO menus (name,category,price) VALUES (?,?,?)");
+      const items: Array<[string, string, number]> = [
       ["Geprek Original Level 1", "GEPREK", 15000],
       ["Geprek Sambal Bawang L3", "GEPREK", 17000],
       ["Geprek Mozarella L5", "GEPREK", 24000],
@@ -109,32 +113,35 @@ function seed() {
     const rand = (a: number, b: number) => a + Math.floor(Math.random() * (b - a + 1));
     const insOrder = db.prepare("INSERT INTO orders (queue_number,kasir_id,customer_name,payment_method,cash_received,total,status,created_at,called_at,done_at) VALUES (?,?,?,?,?,?,?,?,?,?)");
     const insItem = db.prepare("INSERT INTO order_items (order_id,menu_id,menu_name,category,price,qty,subtotal) VALUES (?,?,?,?,?,?,?)");
-    const tx = db.transaction(() => {
-      for (let d = 13; d >= 0; d--) {
-        const perDay = rand(6, 14);
-        for (let i = 1; i <= perDay; i++) {
-          const day = new Date();
-          day.setDate(day.getDate() - d);
-          const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
-          const createdAt = `${dateStr} ${String(rand(9, 20)).padStart(2, "0")}:${String(rand(0, 59)).padStart(2, "0")}:00`;
-          const pay = ["CASH", "QRIS", "DEBIT"][rand(0, 2)];
-          let total = 0; const lines: Array<[typeof menus[number], number]> = [];
-          for (let j = 0; j < rand(1, 4); j++) {
-            const m = menus[rand(0, menus.length - 1)];
-            const qty = rand(1, 3);
-            lines.push([m, qty]);
-            total += m.price * qty;
-          }
-          const status = d === 0 ? (i <= 2 ? "QUEUED" : i <= 4 ? "CALLED" : "DONE") : "DONE";
-          const qn = `A-${String(i).padStart(3, "0")}`;
-          const info = insOrder.run(qn, admin.id, null, pay, pay === "CASH" ? Math.ceil(total / 5000) * 5000 : null, total, status, createdAt, createdAt, createdAt);
-          for (const [m, qty] of lines) insItem.run(info.lastInsertRowid, m.id, m.name, m.category, m.price, qty, m.price * qty);
+    const now = new Date();
+    for (let d = 13; d >= 0; d--) {
+      const perDay = rand(6, 14);
+      for (let i = 1; i <= perDay; i++) {
+        const day = new Date();
+        day.setDate(day.getDate() - d);
+        const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+        const createdAt = `${dateStr} ${String(rand(d === 0 ? 8 : 9, d === 0 ? Math.max(9, now.getHours() - 1) : 20)).padStart(2, "0")}:${String(rand(0, 59)).padStart(2, "0")}:00`;
+        const pay = ["CASH", "QRIS", "DEBIT"][rand(0, 2)];
+        let total = 0; const lines: Array<[typeof menus[number], number]> = [];
+        for (let j = 0; j < rand(1, 4); j++) {
+          const m = menus[rand(0, menus.length - 1)];
+          const qty = rand(1, 3);
+          lines.push([m, qty]);
+          total += m.price * qty;
         }
+        const status = d === 0 ? (i <= 2 ? "QUEUED" : i <= 4 ? "CALLED" : "DONE") : "DONE";
+        const qn = `A-${String(i).padStart(3, "0")}`;
+        const info = insOrder.run(qn, admin.id, null, pay, pay === "CASH" ? Math.ceil(total / 5000) * 5000 : null, total, status, createdAt, createdAt, createdAt);
+        for (const [m, qty] of lines) insItem.run(info.lastInsertRowid, m.id, m.name, m.category, m.price, qty, m.price * qty);
       }
-    });
-    tx();
+    }
   }
+  });
+
+  // Jalankan sebagai BEGIN IMMEDIATE agar worker build paralel tidak saling mengunci.
+  seedTx.immediate();
 }
+
 seed();
 
 export default db;
