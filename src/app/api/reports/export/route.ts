@@ -27,7 +27,8 @@ export async function GET(req: NextRequest) {
   } else {
     const rows = db.prepare(`
       SELECT date(o.created_at) AS tanggal, o.queue_number, o.customer_name, u.name AS kasir,
-        o.payment_method, o.status, oi.menu_name, oi.qty, oi.price, oi.subtotal
+        o.payment_method, o.status, o.subtotal, o.discount, o.tax, o.total,
+        oi.menu_name, oi.qty, oi.price, oi.subtotal AS item_subtotal
       FROM orders o JOIN users u ON u.id = o.kasir_id JOIN order_items oi ON oi.order_id = o.id
       WHERE date(o.created_at) BETWEEN ? AND ?
       ORDER BY o.created_at, oi.id`).all(dari, sampai);
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
       const s = String(v ?? "");
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
-    csv = "tanggal,no_antrian,pelanggan,kasir,pembayaran,status,item,qty,harga,subtotal\n" +
+    csv = "tanggal,no_antrian,pelanggan,kasir,pembayaran,status,subtotal_order,diskon,pajak,total_order,item,qty,harga_item,subtotal_item\n" +
       rows.map((r) => Object.values(r as Record<string, unknown>).map(esc).join(",")).join("\n");
   }
 

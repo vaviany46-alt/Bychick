@@ -9,9 +9,10 @@ Aplikasi web **Bychick Geprek & Burger**: kasir (POS) yang otomatis menghasilkan
 | Registrasi & Login | JWT di cookie **HttpOnly + Secure + SameSite**, password hash **bcrypt (cost 12)**, kebijakan password kuat |
 | Hak akses (RBAC) | Peran **ADMIN** (laporan, menu, pengguna, log) dan **KASIR** (POS & transaksi), dijaga middleware + cek ulang tiap API |
 | CRUD data | Menu (tambah/lihat/ubah/hapus), Pengguna, Transaksi (status antrian) — tersimpan di **SQLite** |
-| Kasir (POS) | Katalog menu + keranjang, hitung total & kembalian, struk dengan nomor antrian harian (A-001 dst.) |
+| Kasir (POS) | Katalog menu + keranjang, **diskon & PPN 11%**, hitung total & kembalian, struk siap cetak dengan nomor antrian harian (A-001 dst.) |
 | Layar antrian TV | Halaman publik `/display`: nomor dipanggil besar + bunyi "ting", daftar antrian berikutnya, auto-refresh 5 detik, cocok dibuka fullscreen di browser TV |
-| Dashboard keuangan | Penerimaan, transaksi, item terjual, rata-rata/transaksi, grafik per hari, menu terlaris, kontribusi kategori, metode pembayaran, kondisi antrian |
+| Dashboard keuangan | Penerimaan vs **pengeluaran & laba bersih** (margin), grafik per hari (dua seri), **ramai per jam**, menu terlaris, kontribusi kategori, metode pembayaran, kondisi antrian, **panel wawasan** (hari terbaik, jam ramai, pertumbuhan vs periode lalu) |
+| Pengeluaran | CRUD beban operasional (bahan, gaji, listrik, sewa, lainnya) — otomatis mengurangi laba di dashboard |
 | Laporan & ekspor | Filter rentang tanggal (preset 7/30 hari + custom) dan **ekspor CSV** (detail transaksi / rekap harian) |
 | Log aktivitas | Audit trail login, transaksi, perubahan data, ekspor — hanya bisa dilihat ADMIN |
 | Keamanan tambahan | Rate limiting login/registrasi, proteksi CSRF (cek origin), security headers (CSP, HSTS, XCTO, XFO, dll.), validasi & sanitasi input dengan Zod, log percobaan login gagal |

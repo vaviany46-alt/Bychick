@@ -67,6 +67,30 @@ CREATE INDEX IF NOT EXISTS idx_items_order ON order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_logs_created ON activity_logs(created_at);
 `);
 
+// ── Migrasi ringan: kolom diskon/pajak/subtotal pada orders ──────────
+{
+  const cols = (db.pragma("table_info(orders)") as Array<{ name: string }>).map((c) => c.name);
+  if (!cols.includes("subtotal")) db.exec("ALTER TABLE orders ADD COLUMN subtotal INTEGER NOT NULL DEFAULT 0");
+  if (!cols.includes("discount")) db.exec("ALTER TABLE orders ADD COLUMN discount INTEGER NOT NULL DEFAULT 0");
+  if (!cols.includes("tax")) db.exec("ALTER TABLE orders ADD COLUMN tax INTEGER NOT NULL DEFAULT 0");
+  // Data lama: total lama = nilai sebelum diskon/pajak
+  db.exec("UPDATE orders SET subtotal = total WHERE subtotal = 0");
+}
+
+// ── Tabel pengeluaran (beban operasional) ────────────────────────────
+db.exec(`
+CREATE TABLE IF NOT EXISTS expenses (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  keterangan TEXT NOT NULL,
+  kategori TEXT NOT NULL CHECK(kategori IN ('BAHAN','GAJI','LISTRIK','SEWA','LAIN')),
+  jumlah INTEGER NOT NULL CHECK(jumlah > 0),
+  expense_date TEXT NOT NULL DEFAULT (date('now','localtime')),
+  user_id INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(expense_date);
+`);
+
 function seed() {
   // Satu transaksi BEGIN IMMEDIATE: hanya satu proses yang boleh seed sekaligus
   // (build berjalan multi-worker); worker lain menunggu lalu menemukan data sudah ada.
@@ -132,7 +156,25 @@ function seed() {
         const status = d === 0 ? (i <= 2 ? "QUEUED" : i <= 4 ? "CALLED" : "DONE") : "DONE";
         const qn = `A-${String(i).padStart(3, "0")}`;
         const info = insOrder.run(qn, admin.id, null, pay, pay === "CASH" ? Math.ceil(total / 5000) * 5000 : null, total, status, createdAt, createdAt, createdAt);
+        db.prepare("UPDATE orders SET subtotal = total WHERE id = ?").run(info.lastInsertRowid);
         for (const [m, qty] of lines) insItem.run(info.lastInsertRowid, m.id, m.name, m.category, m.price, qty, m.price * qty);
+      }
+    }
+
+    // Pengeluaran demo agar dashboard laba bersih terisi.
+    const insExpense = db.prepare("INSERT INTO expenses (keterangan, kategori, jumlah, expense_date, user_id) VALUES (?,?,?,?,?)");
+    const kategoriBeban: Array<[string, string]> = [
+      ["Belanja bahan baku", "BAHAN"], ["Setoran gas & beras", "BAHAN"],
+      ["Gaji harian tim dapur", "GAJI"], ["Token listrik", "LISTRIK"],
+      ["Internet & WiFi", "LAIN"], ["Sewa kios harian", "SEWA"],
+    ];
+    for (let d = 13; d >= 0; d--) {
+      const day = new Date();
+      day.setDate(day.getDate() - d);
+      const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+      for (let j = 0; j < rand(1, 3); j++) {
+        const [ket, kat] = kategoriBeban[rand(0, kategoriBeban.length - 1)];
+        insExpense.run(ket, kat, rand(2, 12) * 10_000, dateStr, admin.id);
       }
     }
   }

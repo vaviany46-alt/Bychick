@@ -68,6 +68,7 @@ const IKON = {
   transaksi: "M6 2h12v20l-3-2-3 2-3-2-3 2V2Zm3 6h6M9 12h6",
   menu: "M4 4h16v4H4zM4 10h16v4H4zM4 16h16v4H4z",
   laporan: "M4 20V10m5 10V4m5 16v-7m5 7V8M2 20h20",
+  dompet: "M20 7H4a2 2 0 0 1 0-4h13v4m3 0v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5m12 8h.01",
   tv: "M2 7h20v13H2zM8 3l4 4 4-4M9 13h6",
   users: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm13 10v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8",
   logs: "M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z",
@@ -81,6 +82,7 @@ const NAV_ADMIN: NavItem[] = [
   { href: "/kasir", label: "Kasir", icon: "kasir" },
   { href: "/kasir/transaksi", label: "Transaksi", icon: "transaksi" },
   { href: "/admin/menu", label: "Kelola Menu", icon: "menu" },
+  { href: "/admin/pengeluaran", label: "Pengeluaran", icon: "dompet" },
   { href: "/admin/users", label: "Pengguna", icon: "users" },
   { href: "/admin/logs", label: "Log Aktivitas", icon: "logs" },
 ];
@@ -209,6 +211,11 @@ export function Kosong({ pesan, aksi }: { pesan: string; aksi?: React.ReactNode 
       {aksi && <div className="mt-3">{aksi}</div>}
     </div>
   );
+}
+
+/* ── Skeleton loading ─────────────────────────────────── */
+export function Skeleton({ className = "h-4 w-full" }: { className?: string }) {
+  return <div className={`skeleton ${className}`} aria-hidden />;
 }
 
 /* ── Alert inline ─────────────────────────────────────── */

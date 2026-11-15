@@ -2,14 +2,23 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell,
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
+  PieChart, Pie, Cell, Legend,
 } from "recharts";
+import { Skeleton } from "@/components/ui";
 import { rupiah, tanggal } from "@/lib/format";
 
 type Summary = {
   rentang: { dari: string; sampai: string };
-  ringkas: { revenue: number; transaksi: number; item_terjual: number; rata_rata: number };
-  series: Array<{ tanggal: string; revenue: number; transaksi: number }>;
+  ringkas: { revenue: number; expense: number; laba: number; transaksi: number; item_terjual: number; rata_rata: number };
+  insight: {
+    hari_terbaik: { tanggal: string; revenue: number } | null;
+    jam_terbaik: string | null;
+    pertumbuhan: number | null;
+    periode_lalu: { dari: string; sampai: string; revenue: number };
+  };
+  series: Array<{ tanggal: string; revenue: number; expense: number }>;
+  per_jam: Array<{ jam: string; transaksi: number; revenue: number }>;
   produk_top: Array<{ nama: string; qty: number; revenue: number }>;
   kategori: Array<{ kategori: string; revenue: number }>;
   pembayaran: Array<{ payment_method: string; jumlah: number; revenue: number }>;
@@ -54,7 +63,7 @@ export default function LaporanClient() {
     ambilData(r);
   }
 
-  async function ekspor(jenis: "transaksi" | "rekap") {
+  function ekspor(jenis: "transaksi" | "rekap") {
     window.open(`/api/reports/export?dari=${rentang.dari}&sampai=${rentang.sampai}&jenis=${jenis}`, "_blank");
   }
 
@@ -62,8 +71,10 @@ export default function LaporanClient() {
     ...s,
     label: tanggal(s.tanggal).replace(/\s\d{4}$/, ""),
   }));
-
+  const perJam = (data?.per_jam ?? []).map((j) => ({ ...j, label: `${j.jam}.00` }));
   const maxProduk = Math.max(1, ...(data?.produk_top.map((p) => p.revenue) ?? [1]));
+  const margin = data && data.ringkas.revenue > 0 ? Math.round((data.ringkas.laba / data.ringkas.revenue) * 100) : 0;
+  const labaPositif = (data?.ringkas.laba ?? 0) >= 0;
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -99,54 +110,154 @@ export default function LaporanClient() {
       </div>
 
       {muat && !data ? (
-        <p className="text-center py-20" style={{ color: "var(--color-ink-2)" }}>Memuat laporan…</p>
+        <div className="flex flex-col gap-5">
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28" />)}
+          </div>
+          <Skeleton className="h-72" />
+          <div className="grid lg:grid-cols-2 gap-5">
+            <Skeleton className="h-64" />
+            <Skeleton className="h-64" />
+          </div>
+        </div>
       ) : data && (
         <>
-          {/* Kartu ringkasan */}
+          {/* Kartu utama */}
           <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
-            {[
-              { label: "Penerimaan", nilai: rupiah(data.ringkas.revenue), warna: "var(--color-ember)", catat: "Transaksi selesai" },
-              { label: "Transaksi", nilai: String(data.ringkas.transaksi), warna: "var(--color-ink)", catat: "Status DONE" },
-              { label: "Item terjual", nilai: String(data.ringkas.item_terjual), warna: "var(--color-daun)", catat: "Total porsi terjual" },
-              { label: "Rata-rata/transaksi", nilai: rupiah(data.ringkas.rata_rata), warna: "var(--color-kunyit)", catat: "Nilai keranjang" },
-            ].map((k) => (
-              <div key={k.label} className="kartu p-5">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: k.warna }} />
-                  <span className="micro">{k.label}</span>
-                </div>
-                <p className="angka font-bold text-[1.7rem] leading-tight">{k.nilai}</p>
-                <p className="text-xs mt-1" style={{ color: "var(--color-ink-2)" }}>{k.catat}</p>
+            <div className="kartu p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: "var(--color-ember)" }} />
+                <span className="micro">Penerimaan</span>
               </div>
-            ))}
+              <p className="angka font-bold text-[1.7rem] leading-tight">{rupiah(data.ringkas.revenue)}</p>
+              <p className="text-xs mt-1" style={{ color: "var(--color-ink-2)" }}>
+                {data.insight.pertumbuhan === null ? "Transaksi selesai" : (
+                  <span style={{ color: data.insight.pertumbuhan >= 0 ? "var(--color-daun)" : "var(--color-ember-2)", fontWeight: 700 }}>
+                    {data.insight.pertumbuhan >= 0 ? "▲" : "▼"} {Math.abs(data.insight.pertumbuhan)}% vs periode lalu
+                  </span>
+                )}
+              </p>
+            </div>
+            <div className="kartu p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: "var(--color-abu)" }} />
+                <span className="micro">Pengeluaran</span>
+              </div>
+              <p className="angka font-bold text-[1.7rem] leading-tight">{rupiah(data.ringkas.expense)}</p>
+              <p className="text-xs mt-1" style={{ color: "var(--color-ink-2)" }}>Beban operasional</p>
+            </div>
+            <div className="kartu p-5" style={{ borderColor: labaPositif ? "#c6dcc6" : "#f2c8bc", background: labaPositif ? "linear-gradient(180deg,#fff 60%,var(--color-daun-soft))" : "linear-gradient(180deg,#fff 60%,var(--color-ember-soft))" }}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: labaPositif ? "var(--color-daun)" : "var(--color-ember)" }} />
+                <span className="micro">Laba bersih</span>
+              </div>
+              <p className="angka font-bold text-[1.7rem] leading-tight" style={{ color: labaPositif ? "var(--color-daun)" : "var(--color-ember-2)" }}>
+                {rupiah(data.ringkas.laba)}
+              </p>
+              <p className="text-xs mt-1" style={{ color: "var(--color-ink-2)" }}>Margin {margin}% dari penerimaan</p>
+            </div>
+            <div className="kartu p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: "var(--color-ink)" }} />
+                <span className="micro">Transaksi</span>
+              </div>
+              <p className="angka font-bold text-[1.7rem] leading-tight">{data.ringkas.transaksi}</p>
+              <p className="text-xs mt-1" style={{ color: "var(--color-ink-2)" }}>{data.ringkas.item_terjual} item · rata-rata {rupiah(data.ringkas.rata_rata)}</p>
+            </div>
           </div>
 
-          {/* Grafik utama */}
+          {/* Grafik utama: penerimaan vs pengeluaran */}
           <div className="kartu p-5 mb-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="judul text-lg">Penerimaan per hari</h2>
-              <span className="micro">sumber: transaksi selesai</span>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <h2 className="judul text-lg">Penerimaan vs pengeluaran per hari</h2>
+              <div className="flex items-center gap-4 text-xs font-semibold">
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded" style={{ background: "var(--color-ember)" }} />Penerimaan</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded" style={{ background: "var(--color-abu)" }} />Pengeluaran</span>
+              </div>
             </div>
             {seri.length === 0 ? (
-              <p className="text-center py-14" style={{ color: "var(--color-ink-2)" }}>Belum ada transaksi selesai pada rentang ini.</p>
+              <p className="text-center py-14" style={{ color: "var(--color-ink-2)" }}>Belum ada data pada rentang ini.</p>
             ) : (
               <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={seri} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
+                <BarChart data={seri} margin={{ top: 4, right: 8, left: 8, bottom: 0 }} barGap={2}>
                   <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 6" vertical={false} />
                   <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#54463c" }} tickLine={false} axisLine={{ stroke: "var(--color-line)" }} />
                   <YAxis tickFormatter={(v: number) => (v >= 1e6 ? `${(v / 1e6).toFixed(0)}jt` : v >= 1e3 ? `${(v / 1e3).toFixed(0)}rb` : String(v))}
                     tick={{ fontSize: 11, fill: "#54463c" }} tickLine={false} axisLine={false} width={44} />
                   <Tooltip
-                    cursor={{ fill: "rgb(200 64 31 / .06)" }}
-                    formatter={((v: unknown, n: unknown) =>
-                      n === "revenue" ? [rupiah(Number(v)), "Penerimaan"] : [Number(v), "Transaksi"]) as never}
+                    cursor={{ fill: "rgb(200 64 31 / .05)" }}
+                    formatter={((v: unknown, n: unknown) => [
+                      rupiah(Number(v)),
+                      n === "revenue" ? "Penerimaan" : "Pengeluaran",
+                    ]) as never}
                     labelStyle={{ color: "#221712", fontWeight: 700 }}
                     contentStyle={{ borderRadius: 12, border: "1px solid #e0d4c2", fontSize: 13 }}
                   />
-                  <Bar dataKey="revenue" fill="var(--color-ember)" radius={[6, 6, 0, 0]} maxBarSize={38} />
+                  <Bar dataKey="revenue" fill="var(--color-ember)" radius={[5, 5, 0, 0]} maxBarSize={30} />
+                  <Bar dataKey="expense" fill="var(--color-abu)" radius={[5, 5, 0, 0]} maxBarSize={30} />
                 </BarChart>
               </ResponsiveContainer>
             )}
+          </div>
+
+          {/* Insight + jam sibuk */}
+          <div className="grid lg:grid-cols-[1fr_1.4fr] gap-5 mb-5">
+            <div className="kartu p-5 flex flex-col gap-4">
+              <h2 className="judul text-lg">Wawasan</h2>
+              <div className="rounded-xl p-4" style={{ background: "var(--color-paper-2)" }}>
+                <p className="micro mb-1">Hari terbaik</p>
+                {data.insight.hari_terbaik ? (
+                  <>
+                    <p className="angka font-bold text-xl">{rupiah(data.insight.hari_terbaik.revenue)}</p>
+                    <p className="text-xs mt-0.5" style={{ color: "var(--color-ink-2)" }}>{tanggal(data.insight.hari_terbaik.tanggal)}</p>
+                  </>
+                ) : <p className="text-sm" style={{ color: "var(--color-ink-2)" }}>Belum ada data</p>}
+              </div>
+              <div className="rounded-xl p-4" style={{ background: "var(--color-paper-2)" }}>
+                <p className="micro mb-1">Jam paling ramai</p>
+                <p className="angka font-bold text-xl">{data.insight.jam_terbaik ?? "—"}</p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--color-ink-2)" }}>Siapkan stok lebih banyak di jam ini</p>
+              </div>
+              <div className="rounded-xl p-4" style={{ background: "var(--color-paper-2)" }}>
+                <p className="micro mb-1">Pertumbuhan</p>
+                {data.insight.pertumbuhan === null ? (
+                  <p className="text-sm" style={{ color: "var(--color-ink-2)" }}>
+                    Tidak ada pembanding (periode lalu nol transaksi)
+                  </p>
+                ) : (
+                  <>
+                    <p className="angka font-bold text-xl" style={{ color: data.insight.pertumbuhan >= 0 ? "var(--color-daun)" : "var(--color-ember-2)" }}>
+                      {data.insight.pertumbuhan >= 0 ? "+" : ""}{data.insight.pertumbuhan}%
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: "var(--color-ink-2)" }}>
+                      dibanding {tanggal(data.insight.periode_lalu.dari)} – {tanggal(data.insight.periode_lalu.sampai)}
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="kartu p-5">
+              <h2 className="judul text-lg mb-4">Ramai per jam</h2>
+              {perJam.length === 0 ? (
+                <p className="text-center py-14" style={{ color: "var(--color-ink-2)" }}>Belum ada transaksi selesai.</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={perJam} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
+                    <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 6" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#54463c" }} tickLine={false} axisLine={{ stroke: "var(--color-line)" }} />
+                    <YAxis tick={{ fontSize: 11, fill: "#54463c" }} tickLine={false} axisLine={false} width={40} allowDecimals={false} />
+                    <Tooltip
+                      cursor={{ fill: "rgb(237 169 60 / .1)" }}
+                      formatter={((v: unknown) => [Number(v), "Transaksi"]) as never}
+                      labelStyle={{ color: "#221712", fontWeight: 700 }}
+                      contentStyle={{ borderRadius: 12, border: "1px solid #e0d4c2", fontSize: 13 }}
+                    />
+                    <Bar dataKey="transaksi" fill="var(--color-kunyit)" radius={[5, 5, 0, 0]} maxBarSize={28} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
           </div>
 
           <div className="grid lg:grid-cols-2 gap-5">

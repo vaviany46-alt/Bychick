@@ -6,7 +6,8 @@ import { rupiah, tanggal, jam, PAYMENT_LABEL } from "@/lib/format";
 
 type Order = {
   id: number; queue_number: string; kasir_name: string; customer_name: string | null;
-  payment_method: string; cash_received: number | null; total: number; status: string;
+  payment_method: string; cash_received: number | null; subtotal: number; discount: number; tax: number;
+  total: number; status: string;
   created_at: string; called_at: string | null; done_at: string | null; jumlah_item: number;
 };
 type Detail = { order: Order; items: Array<{ menu_name: string; qty: number; price: number; subtotal: number }> };
@@ -116,6 +117,9 @@ export default function TransaksiClient() {
                     {o.status === "QUEUED" && (
                       <button onClick={() => ubahStatus(o, "CALLED")} className="btn btn-utama !px-3 !py-1.5 !text-xs">Panggil</button>
                     )}
+                    {o.status === "CALLED" && (
+                      <button onClick={() => ubahStatus(o, "CALLED")} className="btn btn-garis !px-3 !py-1.5 !text-xs" title="Panggil ulang di layar TV">Panggil ulang</button>
+                    )}
                     {(o.status === "QUEUED" || o.status === "CALLED") && (
                       <button onClick={() => ubahStatus(o, "DONE")} className="btn btn-garis !px-3 !py-1.5 !text-xs">Selesai</button>
                     )}
@@ -149,6 +153,16 @@ export default function TransaksiClient() {
                 </li>
               ))}
             </ul>
+            {detail.order.discount > 0 && (
+              <div className="flex justify-between text-sm mt-2" style={{ color: "var(--color-daun)" }}>
+                <span>Diskon</span><span className="angka">−{rupiah(detail.order.discount)}</span>
+              </div>
+            )}
+            {detail.order.tax > 0 && (
+              <div className="flex justify-between text-sm mt-1" style={{ color: "var(--color-ink-2)" }}>
+                <span>PPN 11%</span><span className="angka">+{rupiah(detail.order.tax)}</span>
+              </div>
+            )}
             <div className="flex justify-between font-bold mt-3">
               <span>Total ({PAYMENT_LABEL[detail.order.payment_method]})</span>
               <span className="angka">{rupiah(detail.order.total)}</span>

@@ -217,6 +217,34 @@ body {
 ::-webkit-scrollbar-thumb { background: var(--color-line); border-radius: 999px; border: 2px solid var(--color-paper); }
 ::-webkit-scrollbar-track { background: transparent; }
 
+/* Skeleton shimmer untuk keadaan memuat */
+.skeleton {
+  border-radius: 0.75rem;
+  background: linear-gradient(100deg, var(--color-paper-2) 40%, #faf6ee 50%, var(--color-paper-2) 60%);
+  background-size: 200% 100%;
+  animation: kilau 1.4s ease-in-out infinite;
+}
+@keyframes kilau {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* Cetak: hanya area yang ditandai .area-cetak yang tercetak */
+@media print {
+  body { background: #fff; }
+  body * { visibility: hidden !important; box-shadow: none !important; }
+  .area-cetak, .area-cetak * { visibility: visible !important; }
+  .area-cetak {
+    position: fixed !important;
+    inset: 0 auto auto 0;
+    width: 100%;
+    max-height: none !important;
+    overflow: visible !important;
+    border: none !important;
+    border-radius: 0 !important;
+  }
+}
+
 table.tabel th {
   font-size: 0.6875rem;
   font-weight: 700;

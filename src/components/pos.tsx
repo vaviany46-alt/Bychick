@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Chip, Kosong, Modal, Alert } from "@/components/ui";
+import { Chip, Kosong, Modal, Alert, Skeleton } from "@/components/ui";
 import { rupiah, CATEGORY_LABEL } from "@/lib/format";
 
 type Menu = { id: number; name: string; category: string; price: number; is_available: number };
 type Line = { menu: Menu; qty: number };
 type Receipt = {
-  order: { id: number; queue_number: string; total: number; payment_method: string; cash_received: number | null; created_at: string; customer_name: string | null };
+  order: { id: number; queue_number: string; subtotal: number; discount: number; tax: number; total: number; payment_method: string; cash_received: number | null; created_at: string; customer_name: string | null };
   items: Array<{ menu_name: string; qty: number; price: number; subtotal: number }>;
   kembalian: number;
 };
@@ -16,13 +16,15 @@ type Receipt = {
 const KATEGORI = ["SEMUA", "GEPREK", "BURGER", "MINUMAN", "SNAK"] as const;
 
 export default function PosClient({ kasirName }: { kasirName: string }) {
-  const [menus, setMenus] = useState<Menu[]>([]);
+  const [menus, setMenus] = useState<Menu[] | null>(null);
   const [kategori, setKategori] = useState<(typeof KATEGORI)[number]>("SEMUA");
   const [cari, setCari] = useState("");
   const [keranjang, setKeranjang] = useState<Line[]>([]);
   const [bayar, setBayar] = useState<"CASH" | "QRIS" | "DEBIT">("CASH");
   const [uang, setUang] = useState("");
   const [pelanggan, setPelanggan] = useState("");
+  const [diskon, setDiskon] = useState("");
+  const [pajak, setPajak] = useState(false);
   const [modalBayar, setModalBayar] = useState(false);
   const [struk, setStruk] = useState<Receipt | null>(null);
   const [err, setErr] = useState("");
@@ -34,7 +36,7 @@ export default function PosClient({ kasirName }: { kasirName: string }) {
 
   const tersaring = useMemo(
     () =>
-      menus.filter(
+      (menus ?? []).filter(
         (m) =>
           (kategori === "SEMUA" || m.category === kategori) &&
           m.name.toLowerCase().includes(cari.toLowerCase().trim())
@@ -42,9 +44,12 @@ export default function PosClient({ kasirName }: { kasirName: string }) {
     [menus, kategori, cari]
   );
 
-  const total = keranjang.reduce((s, l) => s + l.menu.price * l.qty, 0);
+  const subtotal = keranjang.reduce((s, l) => s + l.menu.price * l.qty, 0);
   const totalItem = keranjang.reduce((s, l) => s + l.qty, 0);
-  const kembalian = bayar === "CASH" ? Math.max(0, (Number(uang) || 0) - total) : 0;
+  const nilaiDiskon = Math.min(Number(diskon) || 0, subtotal);
+  const nilaiPajak = pajak ? Math.round((subtotal - nilaiDiskon) * 0.11) : 0;
+  const total = subtotal - nilaiDiskon + nilaiPajak;
+  const kembalian = bayar === "CASH" ? (Number(uang) || 0) - total : 0;
 
   function tambah(menu: Menu) {
     setErr("");
@@ -73,6 +78,8 @@ export default function PosClient({ kasirName }: { kasirName: string }) {
         items: keranjang.map((l) => ({ menu_id: l.menu.id, qty: l.qty })),
         payment_method: bayar,
         cash_received: bayar === "CASH" ? Number(uang) : null,
+        discount: nilaiDiskon,
+        with_tax: pajak,
         customer_name: pelanggan,
       }),
     });
@@ -81,7 +88,7 @@ export default function PosClient({ kasirName }: { kasirName: string }) {
     if (!res.ok) { setErr(data.error || "Checkout gagal"); return; }
     setModalBayar(false);
     setStruk({ order: data.order, items: data.order_items, kembalian: data.kembalian });
-    setKeranjang([]); setUang(""); setPelanggan("");
+    setKeranjang([]); setUang(""); setPelanggan(""); setDiskon(""); setPajak(false);
   }
 
   return (
@@ -97,7 +104,7 @@ export default function PosClient({ kasirName }: { kasirName: string }) {
         </div>
       </header>
 
-      <div className="grid lg:grid-cols-[1fr_360px] gap-6 items-start">
+      <div className="grid lg:grid-cols-[1fr_380px] gap-6 items-start">
         {/* Katalog menu */}
         <section className="kartu p-4">
           <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -113,7 +120,11 @@ export default function PosClient({ kasirName }: { kasirName: string }) {
             <input className="input !w-44 ml-auto" placeholder="Cari menu…" value={cari} onChange={(e) => setCari(e.target.value)} />
           </div>
 
-          {tersaring.length === 0 ? (
+          {!menus ? (
+            <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
+              {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
+            </div>
+          ) : tersaring.length === 0 ? (
             <Kosong pesan="Menu tidak ditemukan." />
           ) : (
             <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -167,9 +178,37 @@ export default function PosClient({ kasirName }: { kasirName: string }) {
             </ul>
           )}
 
-          <div className="karcis-sekat pt-4 mt-2 flex justify-between items-baseline">
-            <span className="micro">Total</span>
-            <span className="angka font-bold text-2xl" style={{ color: "var(--color-ember-2)" }}>{rupiah(total)}</span>
+          {/* Diskon & pajak cepat */}
+          {keranjang.length > 0 && (
+            <div className="flex items-center gap-2 mt-3 rounded-xl p-3" style={{ background: "var(--color-paper-2)" }}>
+              <label className="micro shrink-0" htmlFor="diskon-cepat">Diskon</label>
+              <input id="diskon-cepat" type="number" min={0} max={subtotal} className="input angka !py-1.5 !text-sm" placeholder="0"
+                value={diskon} onChange={(e) => setDiskon(e.target.value)} />
+              <label className="flex items-center gap-1.5 text-xs font-semibold shrink-0 cursor-pointer">
+                <input type="checkbox" className="w-3.5 h-3.5 accent-[#c8401f]" checked={pajak} onChange={(e) => setPajak(e.target.checked)} />
+                PPN 11%
+              </label>
+            </div>
+          )}
+
+          <div className="mt-4 flex flex-col gap-1 text-sm">
+            <div className="flex justify-between" style={{ color: "var(--color-ink-2)" }}>
+              <span>Subtotal</span><span className="angka">{rupiah(subtotal)}</span>
+            </div>
+            {nilaiDiskon > 0 && (
+              <div className="flex justify-between" style={{ color: "var(--color-daun)" }}>
+                <span>Diskon</span><span className="angka">−{rupiah(nilaiDiskon)}</span>
+              </div>
+            )}
+            {nilaiPajak > 0 && (
+              <div className="flex justify-between" style={{ color: "var(--color-ink-2)" }}>
+                <span>PPN 11%</span><span className="angka">+{rupiah(nilaiPajak)}</span>
+              </div>
+            )}
+            <div className="karcis-sekat pt-2.5 mt-1.5 flex justify-between items-baseline">
+              <span className="micro">Total</span>
+              <span className="angka font-bold text-2xl" style={{ color: "var(--color-ember-2)" }}>{rupiah(total)}</span>
+            </div>
           </div>
 
           <button className="btn btn-utama w-full mt-4" disabled={keranjang.length === 0} onClick={() => { setErr(""); setModalBayar(true); }}>
@@ -212,7 +251,7 @@ export default function PosClient({ kasirName }: { kasirName: string }) {
             </div>
             {uang && (
               <p className="mt-2.5 text-sm">
-                Kembalian: <b className="angka" style={{ color: kembalian >= 0 ? "var(--color-daun)" : "var(--color-ember-2)" }}>{rupiah(kembalian)}</b>
+                Kembalian: <b className="angka" style={{ color: kembalian >= 0 ? "var(--color-daun)" : "var(--color-ember-2)" }}>{rupiah(Math.max(0, kembalian))}</b>
                 {kembalian < 0 && <span style={{ color: "var(--color-ember-2)" }}> — uang kurang</span>}
               </p>
             )}
@@ -238,7 +277,16 @@ export default function PosClient({ kasirName }: { kasirName: string }) {
               <p className="angka font-bold denyut" style={{ fontSize: "4rem", color: "var(--color-ember)", lineHeight: 1.1 }}>{struk.order.queue_number}</p>
               <p className="text-sm" style={{ color: "var(--color-ink-2)" }}>Tampil otomatis di layar TV</p>
             </div>
-            <div className="karcis-sekat pt-4 mb-4">
+            <div className="karcis-sekat pt-4 mb-4 area-cetak" style={{ background: "#fff" }}>
+              <div className="text-center mb-3" style={{ borderBottom: "1px dashed var(--color-line)", paddingBottom: "0.75rem" }}>
+                <p className="judul text-lg">BYCHICK.</p>
+                <p className="micro" style={{ fontSize: "0.55rem" }}>Geprek &amp; Burger</p>
+                <p className="text-xs mt-1 angka" style={{ color: "var(--color-ink-2)" }}>{struk.order.created_at.replace(" ", " · ")}</p>
+              </div>
+              <div className="flex justify-between items-baseline mb-2">
+                <span className="micro">No. Antrian</span>
+                <span className="angka font-bold text-xl" style={{ color: "var(--color-ember-2)" }}>{struk.order.queue_number}</span>
+              </div>
               <ul className="flex flex-col gap-1.5 text-sm">
                 {struk.items.map((it, i) => (
                   <li key={i} className="flex justify-between gap-2">
@@ -247,20 +295,41 @@ export default function PosClient({ kasirName }: { kasirName: string }) {
                   </li>
                 ))}
               </ul>
-              <div className="flex justify-between font-bold mt-3 pt-2" style={{ borderTop: "1px dashed var(--color-line)" }}>
-                <span>Total</span><span className="angka">{rupiah(struk.order.total)}</span>
-              </div>
-              <div className="flex justify-between text-sm mt-1" style={{ color: "var(--color-ink-2)" }}>
-                <span>Bayar ({struk.order.payment_method === "CASH" ? "Tunai" : struk.order.payment_method})</span>
-                <span className="angka">{rupiah(struk.order.cash_received ?? struk.order.total)}</span>
-              </div>
-              {struk.order.payment_method === "CASH" && (
-                <div className="flex justify-between font-semibold text-sm mt-1">
-                  <span>Kembalian</span><span className="angka">{rupiah(struk.kembalian)}</span>
+              <div className="mt-3 pt-2 text-sm" style={{ borderTop: "1px dashed var(--color-line)" }}>
+                <div className="flex justify-between" style={{ color: "var(--color-ink-2)" }}>
+                  <span>Subtotal</span><span className="angka">{rupiah(struk.order.subtotal)}</span>
                 </div>
-              )}
+                {struk.order.discount > 0 && (
+                  <div className="flex justify-between" style={{ color: "var(--color-daun)" }}>
+                    <span>Diskon</span><span className="angka">−{rupiah(struk.order.discount)}</span>
+                  </div>
+                )}
+                {struk.order.tax > 0 && (
+                  <div className="flex justify-between" style={{ color: "var(--color-ink-2)" }}>
+                    <span>PPN 11%</span><span className="angka">+{rupiah(struk.order.tax)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold mt-1">
+                  <span>Total</span><span className="angka">{rupiah(struk.order.total)}</span>
+                </div>
+                <div className="flex justify-between text-sm mt-1" style={{ color: "var(--color-ink-2)" }}>
+                  <span>Bayar ({struk.order.payment_method === "CASH" ? "Tunai" : struk.order.payment_method})</span>
+                  <span className="angka">{rupiah(struk.order.cash_received ?? struk.order.total)}</span>
+                </div>
+                {struk.order.payment_method === "CASH" && (
+                  <div className="flex justify-between font-semibold text-sm mt-1">
+                    <span>Kembalian</span><span className="angka">{rupiah(struk.kembalian)}</span>
+                  </div>
+                )}
+              </div>
+              <p className="text-center text-xs mt-3" style={{ color: "var(--color-ink-2)" }}>
+                Terima kasih sudah mampir — pedasnya juara! 🌶
+              </p>
             </div>
-            <button className="btn btn-utama w-full" onClick={() => setStruk(null)}>Transaksi berikutnya</button>
+            <div className="flex gap-2">
+              <button className="btn btn-garis flex-1" onClick={() => window.print()}>Cetak struk</button>
+              <button className="btn btn-utama flex-1" onClick={() => setStruk(null)}>Transaksi berikutnya</button>
+            </div>
           </div>
         )}
       </Modal>

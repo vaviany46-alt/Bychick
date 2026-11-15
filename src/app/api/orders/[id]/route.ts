@@ -26,9 +26,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     | undefined;
   if (!order) return NextResponse.json({ error: "Transaksi tidak ditemukan" }, { status: 404 });
 
-  // Transisi yang sah: QUEUED→CALLED, QUEUED/CALLED→DONE, QUEUED/CALLED→CANCELLED
+  // Transisi yang sah: QUEUED→CALLED, QUEUED/CALLED→DONE, QUEUED/CALLED→CANCELLED,
+  // serta CALLED→CALLED sebagai "panggil ulang" (memperbarui waktu panggil).
   const sah =
-    (status === "CALLED" && order.status === "QUEUED") ||
+    (status === "CALLED" && (order.status === "QUEUED" || order.status === "CALLED")) ||
     (status === "DONE" && (order.status === "QUEUED" || order.status === "CALLED")) ||
     (status === "CANCELLED" && (order.status === "QUEUED" || order.status === "CALLED"));
   if (!sah) {
@@ -41,7 +42,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 
   logAktivitas({
     userId: Number(session!.sub), username: session!.username,
-    action: `ORDER_${status}`, detail: `${order.queue_number} → ${status}`, req,
+    action: status === "CALLED" && order.status === "CALLED" ? "ORDER_RECALL" : `ORDER_${status}`,
+    detail: `${order.queue_number} → ${status}`, req,
   });
 
   const updated = db.prepare("SELECT * FROM orders WHERE id = ?").get(orderId);

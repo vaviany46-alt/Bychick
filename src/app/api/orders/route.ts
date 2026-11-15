@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   const parsed = orderSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: zodMessage(parsed.error) }, { status: 400 });
 
-  const { items, payment_method, customer_name, cash_received } = parsed.data;
+  const { items, payment_method, customer_name, cash_received, discount, with_tax } = parsed.data;
 
   // Harga dihitung ulang di server dari database — tidak pernah percaya input klien.
   const stmtMenu = db.prepare("SELECT id, name, category, price FROM menus WHERE id = ? AND is_available = 1");
@@ -52,7 +52,10 @@ export async function POST(req: NextRequest) {
     if (!m) return NextResponse.json({ error: `Menu id ${it.menu_id} tidak tersedia` }, { status: 400 });
     lines.push({ menuId: m.id, name: m.name, category: m.category, price: m.price, qty: it.qty, subtotal: m.price * it.qty });
   }
-  const total = lines.reduce((s, l) => s + l.subtotal, 0);
+  const nilai = lines.reduce((s, l) => s + l.subtotal, 0);
+  const diskon = Math.min(discount, nilai); // diskon tidak boleh melebihi nilai
+  const pajak = with_tax ? Math.round((nilai - diskon) * 0.11) : 0;
+  const total = nilai - diskon + pajak;
 
   if (payment_method === "CASH") {
     if (!cash_received || cash_received < total) {
@@ -68,8 +71,8 @@ export async function POST(req: NextRequest) {
   const queueNumber = `A-${String(jumlahHariIni.c + 1).padStart(3, "0")}`;
 
   const insOrder = db.prepare(`
-    INSERT INTO orders (queue_number, kasir_id, customer_name, payment_method, cash_received, total, status)
-    VALUES (?,?,?,?,?,?,'QUEUED')`);
+    INSERT INTO orders (queue_number, kasir_id, customer_name, payment_method, cash_received, subtotal, discount, tax, total, status)
+    VALUES (?,?,?,?,?,?,?,?,?,'QUEUED')`);
   const insItem = db.prepare(`
     INSERT INTO order_items (order_id, menu_id, menu_name, category, price, qty, subtotal)
     VALUES (?,?,?,?,?,?,?)`);
@@ -78,7 +81,8 @@ export async function POST(req: NextRequest) {
   const tx = db.transaction(() => {
     const info = insOrder.run(
       queueNumber, Number(session!.sub), customer_name || null,
-      payment_method, payment_method === "CASH" ? cash_received : null, total
+      payment_method, payment_method === "CASH" ? cash_received : null,
+      nilai, diskon, pajak, total
     );
     orderId = Number(info.lastInsertRowid);
     for (const l of lines) insItem.run(orderId, l.menuId, l.name, l.category, l.price, l.qty, l.subtotal);

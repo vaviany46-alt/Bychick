@@ -51,6 +51,8 @@ export const orderSchema = z.object({
   customer_name: cleanString(0, 60).optional().or(z.literal("")),
   payment_method: z.enum(["CASH", "QRIS", "DEBIT"]),
   cash_received: z.coerce.number().int().min(0).max(100_000_000).optional().nullable(),
+  discount: z.coerce.number().int().min(0).max(10_000_000).optional().default(0),
+  with_tax: z.coerce.boolean().optional().default(false),
   items: z
     .array(
       z.object({
@@ -60,6 +62,16 @@ export const orderSchema = z.object({
     )
     .min(1, "Keranjang tidak boleh kosong")
     .max(50),
+});
+
+export const expenseSchema = z.object({
+  keterangan: cleanString(3, 80),
+  kategori: z.enum(["BAHAN", "GAJI", "LISTRIK", "SEWA", "LAIN"]),
+  jumlah: z.coerce.number().int().min(500, "Jumlah minimal Rp500").max(1_000_000_000),
+  expense_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid")
+    .optional(),
 });
 
 export const orderStatusSchema = z.object({
