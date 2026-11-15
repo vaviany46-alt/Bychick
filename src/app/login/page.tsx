@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Logo, Alert } from "@/components/ui";
+import { Alert } from "@/components/ui";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [form, setForm] = useState({ username: "", password: "" });
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
+  const [lihatSandi, setLihatSandi] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -28,90 +29,105 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-[1.1fr_1fr]">
-      {/* Panel brand */}
-      <div className="relative hidden lg:flex flex-col justify-between p-10 overflow-hidden" style={{ background: "var(--color-ink)" }}>
-        <Logo light />
-        <div className="relative">
-          <h1 className="judul text-[3.4rem] text-[#f7f2e9]">
-            Kasir, antrian &amp; uang —
-            <br />
-            <span style={{ color: "var(--color-kunyit)" }}>satu papan.</span>
-          </h1>
-          <p className="mt-4 max-w-md text-[15px] leading-relaxed" style={{ color: "#a5947f" }}>
-            Transaksi kasir langsung tercetak nomor antriannya di layar TV,
-            dan setiap rupiah tercatat di dashboard analisis keuangan.
-          </p>
-        </div>
+    <div className="relative min-h-screen overflow-hidden flex flex-col" style={{ background: "var(--color-paper)" }}>
+      {/* Dekorasi latar */}
+      <div className="absolute inset-0 pola-titik" style={{ opacity: 0.55 }} aria-hidden />
+      <div className="absolute -top-32 -right-32 w-[28rem] h-[28rem] rounded-full" style={{ background: "var(--color-ember-soft)", filter: "blur(10px)" }} aria-hidden />
+      <div className="absolute -bottom-40 -left-40 w-[30rem] h-[30rem] rounded-full" style={{ background: "var(--color-kunyit-soft)", filter: "blur(10px)" }} aria-hidden />
 
-        {/* Mockup karcis antrian */}
-        <div className="absolute right-10 top-1/2 -translate-y-1/2 rotate-3">
-          <div className="karcis w-64 p-5" style={{ borderRadius: "1.25rem" }}>
-            <p className="micro" style={{ letterSpacing: "0.22em" }}>No. Antrian</p>
-            <p className="angka font-bold my-2" style={{ fontSize: "3.5rem", color: "var(--color-ember)", lineHeight: 1 }}>A-007</p>
-            <div className="karcis-sekat pt-3 mt-3 flex justify-between items-center text-xs" style={{ color: "var(--color-ink-2)" }}>
-              <span>2 item · Rp31.000</span>
-              <span className="chip chip-antri"><span className="dot" />Dipanggil</span>
+      {/* Logo kiri atas */}
+      <header className="relative z-10 flex items-center gap-2.5 px-8 pt-7">
+        <span className="grid place-items-center rounded-xl w-10 h-10" style={{ background: "var(--color-ember)" }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path d="M13.5 3.5c3.6-1.3 6.8.8 7 4.2.2 3-2 4.6-4.3 5.4l-4.6 1.6-3.3-3.3 1.6-4.6c.8-2.3 1.9-2.9 3.6-3.3Z" fill="#F7F2E9" />
+            <path d="m8.3 11.4 4.3 4.3-2.4 2.4a2 2 0 1 1-1.6-1.6 2 2 0 1 1 1.6-1.6l-2.5-2.5 1.9-1.9Z" fill="#F7F2E9" />
+          </svg>
+        </span>
+        <p className="judul text-xl">BYCHICK<span style={{ color: "var(--color-ember)" }}>.</span></p>
+      </header>
+
+      {/* Isi tengah */}
+      <main className="relative z-10 flex-1 grid place-items-center px-6 py-10">
+        <div className="w-full max-w-[25rem] relative muncul">
+
+          {/* Karcis dekoratif di belakang kartu */}
+          <div className="karcis absolute -right-10 -top-8 w-36 p-3 rotate-6 hidden sm:block select-none pointer-events-none"
+            style={{ boxShadow: "0 14px 30px -18px rgb(34 23 18 / .35)" }}>
+            <p className="micro" style={{ letterSpacing: "0.2em", fontSize: "0.55rem" }}>No. Antrian</p>
+            <p className="angka font-bold my-1" style={{ fontSize: "2.2rem", color: "var(--color-ember)", lineHeight: 1 }}>A-07</p>
+            <div className="karcis-sekat pt-2 mt-2 flex justify-between text-[0.6rem]" style={{ color: "var(--color-ink-2)" }}>
+              <span className="angka">2 item</span>
+              <span className="chip chip-antri" style={{ fontSize: "0.5rem", padding: "0.1rem 0.4rem" }}><span className="dot" />Live</span>
             </div>
           </div>
-          <div className="karcis w-64 p-4 mt-3 -rotate-6 opacity-80" style={{ borderRadius: "1.25rem" }}>
-            <div className="flex justify-between text-xs" style={{ color: "var(--color-ink-2)" }}>
-              <span className="micro">Penerimaan Hari Ini</span>
-              <span className="chip chip-selesai"><span className="dot" />Live</span>
+
+          {/* Kartu form */}
+          <div className="kartu p-8 relative">
+            <p className="micro">Papan kasir · {tahun ?? ""}</p>
+            <h1 className="judul text-4xl mt-2 mb-1">Masuk.</h1>
+            <p className="text-sm mb-6" style={{ color: "var(--color-ink-2)" }}>
+              Satu pintu untuk kasir, antrian, dan analisis keuangan.
+            </p>
+
+            {err && <div className="mb-4"><Alert jenis="gagal">{err}</Alert></div>}
+
+            <form onSubmit={submit} className="flex flex-col gap-4">
+              <div>
+                <label className="micro block mb-1.5" htmlFor="username">Username</label>
+                <input id="username" className="input" autoComplete="username" required
+                  value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })}
+                  placeholder="mis. kasir" />
+              </div>
+              <div>
+                <label className="micro block mb-1.5" htmlFor="password">Password</label>
+                <div className="relative">
+                  <input id="password" type={lihatSandi ? "text" : "password"} className="input !pr-16" autoComplete="current-password" required
+                    value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    placeholder="••••••••" />
+                  <button type="button" onClick={() => setLihatSandi((v) => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 micro !normal-case !tracking-normal text-xs px-2 py-1 rounded-md"
+                    style={{ color: "var(--color-ember-2)" }}>
+                    {lihatSandi ? "Sembunyi" : "Lihat"}
+                  </button>
+                </div>
+              </div>
+              <button className="btn btn-utama mt-1 !py-3 !text-[15px]" disabled={loading}>
+                {loading ? "Memproses…" : "Masuk ke kasir"}
+              </button>
+            </form>
+
+            <div className="flex items-center gap-3 my-5">
+              <span className="flex-1" style={{ borderTop: "1px solid var(--color-line)" }} />
+              <span className="micro" style={{ letterSpacing: "0.1em" }}>belum punya akun?</span>
+              <span className="flex-1" style={{ borderTop: "1px solid var(--color-line)" }} />
             </div>
-            <p className="angka font-bold text-2xl mt-1.5" style={{ color: "var(--color-ink)" }}>Rp1.248.000</p>
-            <svg viewBox="0 0 220 48" className="mt-2 w-full">
-              <polyline
-                points="0,40 30,34 60,36 90,26 120,30 150,18 180,20 220,8"
-                fill="none" stroke="var(--color-ember)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
-              />
-            </svg>
-          </div>
-        </div>
-        <p className="text-xs" style={{ color: "#6b5644" }}>© {tahun ?? ""} Bychick Geprek &amp; Burger</p>
-      </div>
-
-      {/* Panel form */}
-      <div className="flex items-center justify-center p-6 min-h-screen">
-        <div className="w-full max-w-sm muncul">
-          <div className="lg:hidden mb-8"><Logo /></div>
-          <p className="micro mb-1">Selamat datang kembali</p>
-          <h2 className="judul text-3xl mb-6">Masuk ke kasir</h2>
-
-          {err && <div className="mb-4"><Alert jenis="gagal">{err}</Alert></div>}
-
-          <form onSubmit={submit} className="flex flex-col gap-4">
-            <div>
-              <label className="micro block mb-1.5" htmlFor="username">Username</label>
-              <input id="username" className="input" autoComplete="username" required
-                value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })}
-                placeholder="mis. kasir" />
-            </div>
-            <div>
-              <label className="micro block mb-1.5" htmlFor="password">Password</label>
-              <input id="password" type="password" className="input" autoComplete="current-password" required
-                value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
-                placeholder="••••••••" />
-            </div>
-            <button className="btn btn-utama mt-2" disabled={loading}>
-              {loading ? "Memproses…" : "Masuk"}
-            </button>
-          </form>
-
-          <p className="text-sm mt-6" style={{ color: "var(--color-ink-2)" }}>
-            Belum punya akun?{" "}
-            <Link href="/register" className="font-semibold underline-offset-2 hover:underline" style={{ color: "var(--color-ember-2)" }}>
+            <Link href="/register" className="btn btn-garis w-full">
               Daftar kasir baru
             </Link>
-          </p>
+          </div>
 
-          <div className="kartu mt-8 p-4 text-xs leading-relaxed" style={{ color: "var(--color-ink-2)", background: "var(--color-paper-2)", boxShadow: "none" }}>
-            <p className="micro mb-1.5">Akun uji coba</p>
-            Admin — <span className="angka">admin / Admin123!</span><br />
-            Kasir — <span className="angka">kasir / Kasir123!</span>
+          {/* Akun uji coba */}
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            {[
+              { r: "Admin", u: "admin", p: "Admin123!" },
+              { r: "Kasir", u: "kasir", p: "Kasir123!" },
+            ].map((a) => (
+              <button key={a.r} type="button"
+                onClick={() => setForm({ username: a.u, password: a.p })}
+                className="kartu px-3.5 py-2.5 text-left hover:-translate-y-0.5 transition-transform"
+                style={{ background: "var(--color-paper)", boxShadow: "none" }}
+                title="Klik untuk isi otomatis">
+                <p className="micro" style={{ fontSize: "0.55rem" }}>{a.r} · klik isi otomatis</p>
+                <p className="angka text-xs font-semibold mt-0.5 truncate">{a.u} / {a.p}</p>
+              </button>
+            ))}
           </div>
         </div>
-      </div>
+      </main>
+
+      <footer className="relative z-10 text-center pb-6">
+        <p className="micro" style={{ letterSpacing: "0.18em" }}>Bychick Geprek &amp; Burger · Sistem kasir &amp; antrian</p>
+      </footer>
     </div>
   );
 }

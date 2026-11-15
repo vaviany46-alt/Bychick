@@ -12,7 +12,9 @@ Aplikasi web **Bychick Geprek & Burger**: kasir (POS) yang otomatis menghasilkan
 | Kasir (POS) | Katalog menu + keranjang, **diskon & PPN 11%**, hitung total & kembalian, struk siap cetak dengan nomor antrian harian (A-001 dst.) |
 | Layar antrian TV | Halaman publik `/display`: nomor dipanggil besar + bunyi "ting", daftar antrian berikutnya, auto-refresh 5 detik, cocok dibuka fullscreen di browser TV |
 | Dashboard keuangan | Penerimaan vs **pengeluaran & laba bersih** (margin), grafik per hari (dua seri), **ramai per jam**, menu terlaris, kontribusi kategori, metode pembayaran, kondisi antrian, **panel wawasan** (hari terbaik, jam ramai, pertumbuhan vs periode lalu) |
-| Pengeluaran | CRUD beban operasional (bahan, gaji, listrik, sewa, lainnya) — otomatis mengurangi laba di dashboard |
+| Laporan cetak PDF | Halaman `/admin/laporan/cetak` bergaya A4 (kop surat, ringkasan, rincian per hari, pengeluaran per kategori, menu terlaris, metode bayar, tanda tangan) — tombol "Cetak / Simpan PDF" memakai dialog print browser |
+| Layar antrian TV | Halaman publik `/display`: nomor dipanggil besar + bunyi "ting", daftar antrian berikutnya **dengan estimasi waktu tunggu** (dihitung dari jeda panggilan nyata), **slide promo berputar otomatis** dengan indikator, auto-refresh 5 detik |
+| Pengeluaran | **Kasir mencatat harian** (hanya hari ini, tanpa backdate) di `/kasir/pengeluaran`; **admin melihat rekap lengkap** dengan filter rentang di `/admin/pengeluaran` — beban otomatis mengurangi laba di dashboard |
 | Laporan & ekspor | Filter rentang tanggal (preset 7/30 hari + custom) dan **ekspor CSV** (detail transaksi / rekap harian) |
 | Log aktivitas | Audit trail login, transaksi, perubahan data, ekspor — hanya bisa dilihat ADMIN |
 | Keamanan tambahan | Rate limiting login/registrasi, proteksi CSRF (cek origin), security headers (CSP, HSTS, XCTO, XFO, dll.), validasi & sanitasi input dengan Zod, log percobaan login gagal |

@@ -212,6 +212,21 @@ body {
   animation: muncul 0.25s ease-out both;
 }
 
+/* Slide iklan masuk dari kanan di layar TV */
+@keyframes slideMasuk {
+  from { opacity: 0; transform: translateX(48px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.slide-masuk {
+  animation: slideMasuk 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Pola titik halus untuk latar dekoratif */
+.pola-titik {
+  background-image: radial-gradient(var(--color-line) 1.2px, transparent 1.2px);
+  background-size: 24px 24px;
+}
+
 /* Scrollbar halus */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--color-line); border-radius: 999px; border: 2px solid var(--color-paper); }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
   PieChart, Pie, Cell, Legend,
@@ -84,6 +85,7 @@ export default function LaporanClient() {
           <h1 className="judul text-3xl mt-1">Analisis keuangan</h1>
         </div>
         <div className="flex gap-2">
+          <Link href={`/admin/laporan/cetak?dari=${rentang.dari}&sampai=${rentang.sampai}`} className="btn btn-garis">Cetak / PDF</Link>
           <button onClick={() => ekspor("rekap")} className="btn btn-garis">Ekspor rekap CSV</button>
           <button onClick={() => ekspor("transaksi")} className="btn btn-utama">Ekspor transaksi CSV</button>
         </div>
