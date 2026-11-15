@@ -68,25 +68,29 @@ Wajib HTTPS: Railway/Render/Vercel memberikan sertifikat valid otomatis pada dom
 
 Sesuai ketentuan tugas, bagian dari kode ini dibantu **OpenCode (GLM)**:
 - Perancangan struktur proyek, skema database, dan API autentikasi/transaksi/laporan.
-- Penulisan middleware keamanan (security headers, RBAC, rate limiting, CSRF).
-- Penyusunan README dan skenario uji keamanan.
+- Penulisan proteksi keamanan (security headers via `proxy.ts`, RBAC, rate limiting, CSRF, sanitasi input).
+- Penyusunan README, skrip `tes-keamanan.mjs`, dan dokumentasi laporan.
 
 Mahasiswa memverifikasi dengan membaca ulang kode, menjalankan aplikasi, dan melakukan self-testing (lihat bawah). Tidak ada secret/kredensial nyata yang dimasukkan ke prompt AI.
 
 ## Ringkasan Self-Testing Keamanan
 
+Hasil nyata dari skrip `tes-keamanan.mjs` (jalankan `node tes-keamanan.mjs` saat server aktif):
+
 | # | Skenario uji | Cara uji | Hasil |
 |---|---|---|---|
-| 1 | SQL Injection pada login & filter | Input `' OR 1=1--` pada username/parameter | Lolos — semua query *prepared statement* |
-| 2 | XSS pada nama menu/pelanggan | Simpan `<script>alert(1)</script>` lalu lihat daftar | Lolos — React meng-escape output |
-| 3 | RBAC / IDOR | Akun KASIR membuka `/admin/*` & `PATCH /api/menu` | Lolos — redirect + HTTP 403 |
-| 4 | Password lemah ditolak | Registrasi dengan `12345678` | Lolos — Zod menolak (min. 8, ada huruf & angka) |
-| 5 | Rate limiting login | 6× login salah berurutan | Lolos — HTTP 429 + `Retry-After` |
-| 6 | Sesi & logout | Logout lalu akses `/admin/laporan` | Lolos — cookie dikosongkan, redirect ke login |
-| 7 | Security headers | Cek response di DevTools / securityheaders.com | Lolos — CSP, HSTS (produksi), XCTO, XFO, Referrer-Policy |
-| 8 | Secret di repositori | `git log -p` / cek `.gitignore` | Lolos — `.env` di-ignore, `.env.example` tanpa nilai asli |
+| 1 | SQL Injection pada login & filter | Input `' OR 1=1--` pada username/parameter | Lolos — HTTP 401, semua query *prepared statement* |
+| 2 | XSS tersimpan pada nama menu | Simpan `<script>alert(1)</script>` | Diperbaiki — awalnya tersimpan mentah (harmless di React), kini tag `< >` dibuang saat input (sanitasi Zod) |
+| 3 | RBAC / IDOR | Akun KASIR memanggil `GET /api/users`, `POST /api/menu`, `GET /api/logs`, `PATCH /api/users/1` | Lolos — semua HTTP 403; halaman `/admin/*` redirect (307) |
+| 4 | Password lemah ditolak | Registrasi dengan `12345678` | Lolos — HTTP 400 (min. 8 karakter, wajib huruf & angka) |
+| 5 | Rate limiting login | 6× login salah berurutan | Lolos — HTTP 429 + `Retry-After`, tercatat di audit log |
+| 6 | CSRF | `POST /api/auth/login` dengan header `Origin: https://evil.example` | Lolos — HTTP 403 (cek origin pada semua mutasi) |
+| 7 | Sesi & token | JWT palsu `abc.def.ghi` di cookie | Lolos — HTTP 401 "Sesi tidak valid"; logout mengosongkan cookie |
+| 8 | Security headers | Cek header respons | Lolos — CSP, XCTO `nosniff`, XFO `DENY`, `Referrer-Policy`, HSTS (produksi) |
+| 9 | Secret di repositori | `git ls-files` / cek `.gitignore` | Lolos — `.env` tidak ter-track, hanya `.env.example` tanpa nilai asli |
+| 10 | Audit dependensi | `npm audit` | 7 *moderate* — seluruhnya di `devDependencies` (typescript-eslint/minimatch, dev tooling), **bukan kode produksi** |
 
-Skenario lengkap + bukti tangkapan layar didokumentasikan dalam laporan PDF.
+Skenario lengkap + bukti tangkapan layar didokumentasikan dalam laporan PDF (minimal 5 skenario: skenario, cara uji, hasil, perbaikan).
 
 ## Catatan Presentasi
 
