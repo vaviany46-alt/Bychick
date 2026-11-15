@@ -6,8 +6,6 @@ import { rateLimit, tooMany } from "@/lib/rate-limit";
 import { assertSameOrigin, createToken, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
 import { logAktivitas } from "@/lib/log";
 
-export const runtime = "nodejs";
-
 export async function POST(req: NextRequest) {
   if (!assertSameOrigin(req)) {
     return NextResponse.json({ error: "Permintaan tidak sah (origin)" }, { status: 403 });
