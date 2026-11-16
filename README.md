@@ -10,10 +10,9 @@ Aplikasi web **Bychick Geprek & Burger**: kasir (POS) yang otomatis menghasilkan
 | Hak akses (RBAC) | Peran **ADMIN** (laporan, menu, pengguna, log) dan **KASIR** (POS & transaksi), dijaga middleware + cek ulang tiap API |
 | CRUD data | Menu (tambah/lihat/ubah/hapus), Pengguna, Transaksi (status antrian) — tersimpan di **SQLite** |
 | Kasir (POS) | Katalog menu + keranjang, **diskon & PPN 11%**, hitung total & kembalian, struk siap cetak dengan nomor antrian harian (A-001 dst.) |
-| Layar antrian TV | Halaman publik `/display`: nomor dipanggil besar + bunyi "ting", daftar antrian berikutnya, auto-refresh 5 detik, cocok dibuka fullscreen di browser TV |
+| Layar antrian TV | Halaman publik `/display`: nomor dipanggil besar + bunyi "ting", daftar antrian berikutnya **dengan estimasi waktu tunggu** (dihitung dari jeda panggilan nyata), **slide promo berputar otomatis** dengan indikator, auto-refresh 5 detik, cocok dibuka fullscreen di browser TV |
 | Dashboard keuangan | Penerimaan vs **pengeluaran & laba bersih** (margin), grafik per hari (dua seri), **ramai per jam**, menu terlaris, kontribusi kategori, metode pembayaran, kondisi antrian, **panel wawasan** (hari terbaik, jam ramai, pertumbuhan vs periode lalu) |
 | Laporan cetak PDF | Halaman `/admin/laporan/cetak` bergaya A4 (kop surat, ringkasan, rincian per hari, pengeluaran per kategori, menu terlaris, metode bayar, tanda tangan) — tombol "Cetak / Simpan PDF" memakai dialog print browser |
-| Layar antrian TV | Halaman publik `/display`: nomor dipanggil besar + bunyi "ting", daftar antrian berikutnya **dengan estimasi waktu tunggu** (dihitung dari jeda panggilan nyata), **slide promo berputar otomatis** dengan indikator, auto-refresh 5 detik |
 | Pengeluaran | **Kasir mencatat harian** (hanya hari ini, tanpa backdate) di `/kasir/pengeluaran`; **admin melihat rekap lengkap** dengan filter rentang di `/admin/pengeluaran` — beban otomatis mengurangi laba di dashboard |
 | Laporan & ekspor | Filter rentang tanggal (preset 7/30 hari + custom) dan **ekspor CSV** (detail transaksi / rekap harian) |
 | Log aktivitas | Audit trail login, transaksi, perubahan data, ekspor — hanya bisa dilihat ADMIN |
@@ -91,9 +90,9 @@ Hasil nyata dari skrip `tes-keamanan.mjs` (jalankan `node tes-keamanan.mjs` saat
 | 7 | Sesi & token | JWT palsu `abc.def.ghi` di cookie | Lolos — HTTP 401 "Sesi tidak valid"; logout mengosongkan cookie |
 | 8 | Security headers | Cek header respons | Lolos — CSP, XCTO `nosniff`, XFO `DENY`, `Referrer-Policy`, HSTS (produksi) |
 | 9 | Secret di repositori | `git ls-files` / cek `.gitignore` | Lolos — `.env` tidak ter-track, hanya `.env.example` tanpa nilai asli |
-| 10 | Audit dependensi | `npm audit` | 7 *moderate* — seluruhnya di `devDependencies` (typescript-eslint/minimatch, dev tooling), **bukan kode produksi** |
+| 10 | Audit dependensi | `npm audit` | Produksi (`npm audit --omit=dev`): **0 kerentanan**; temuan *moderate* tersisa di `devDependencies` (typescript-eslint/minimatch, dev tooling), **bukan kode produksi** |
 
-Skenario lengkap + bukti tangkapan layar didokumentasikan dalam laporan PDF (minimal 5 skenario: skenario, cara uji, hasil, perbaikan).
+Skenario lengkap (13 skenario: skenario, cara uji, hasil, perbaikan) + bukti tangkapan layar didokumentasikan dalam laporan tugas `laporan-tugas/TugasProject_CyberSec_NAMA_NIM.docx`.
 
 ## Catatan Presentasi
 
