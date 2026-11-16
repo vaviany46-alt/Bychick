@@ -3,7 +3,21 @@ import bcrypt from "bcryptjs";
 import path from "node:path";
 import fs from "node:fs";
 
-const DATA_DIR = path.join(process.cwd(), "data");
+// Direktori data: bisa diatur lewat SQLITE_PATH. Di platform read-only filesystem
+// (mis. Vercel serverless) otomatis fallback ke /tmp agar aplikasi tetap jalan.
+function resolveDataDir(): string {
+  const defaultDir = process.env.SQLITE_PATH ? path.dirname(process.env.SQLITE_PATH) : path.join(process.cwd(), "data");
+  try {
+    fs.mkdirSync(defaultDir, { recursive: true });
+    fs.accessSync(defaultDir, fs.constants.W_OK);
+    return defaultDir;
+  } catch {
+    const fallback = "/tmp/bychick-data";
+    fs.mkdirSync(fallback, { recursive: true });
+    return fallback;
+  }
+}
+const DATA_DIR = resolveDataDir();
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const db = new Database(path.join(DATA_DIR, "bychick.db"), { timeout: 15_000 });
